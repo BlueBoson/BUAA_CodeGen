@@ -16,50 +16,85 @@ void SymbolTable::deleteInstance() {
 
 bool SymbolTable::push(Token& tk, IdenType type) {
 	auto symName = tk.getValue();
-	int last = tables.size() - 1;
-	auto iter = tables[last].find(symName);
-	if (iter != tables[last].end()) {
-		return false;
+	if (curName.empty()) {
+		if (funcs.find(symName) != funcs.end() || globalVars.find(symName) != globalVars.end()) {
+			return false;
+		}
+		if (type == IdenType::CHAR_FUNC || type == IdenType::INT_FUNC || type == IdenType::VOID_FUNC) {
+			std::vector<ArgType> initArgs;
+			funcs[symName] = { type, initArgs };
+		} else {
+			globalVars[symName] = { type, 0 };
+		}
 	} else {
-		tables[last][symName] = type;
-		return true;
+		if (curVars.find(symName) != curVars.end()) {
+			return false;
+		}
+		curVars[symName] = { type, 0 };
 	}
+	return true;
 }
 
 IdenType SymbolTable::find(Token& tk) {
 	auto symName = tk.getValue();
-	for (int i = tables.size() - 1; i >= 0; i--) {
-		auto iter = tables[i].find(symName);
-		if (iter != tables[i].end()) {
-			return iter->second;
+	if (!curName.empty()) {
+		auto iter = curVars.find(symName);
+		if (iter != curVars.end()) {
+			return iter->second.type;
 		}
+	}
+	auto vIter = globalVars.find(symName);
+	if (vIter != globalVars.end()) {
+		return vIter->second.type;
+	}
+	auto fIter = funcs.find(symName);
+	if (fIter != funcs.end()) {
+		return fIter->second.type;
 	}
 	return IdenType::NONE;
 }
 
 void SymbolTable::addArgs(Token& tk, std::vector<ArgType>& args) {
-	auto iter = funcArgs.find(tk.getValue());
-	if (iter == funcArgs.end()) {
-		funcArgs[tk.getValue()] = args;
+	funcs[tk.getValue()].args = args;
+}
+
+void SymbolTable::addDim(Token& tk, int dim) {
+	if (curName.empty()) {
+		globalVars[tk.getValue()].dim = dim;
+	} else {
+		curVars[tk.getValue()].dim = dim;
 	}
 }
 
 std::vector<ArgType> SymbolTable::getArgs(Token& tk) {
 	std::vector<ArgType> r;
-	auto iter = funcArgs.find(tk.getValue());
-	if (iter == funcArgs.end()) {
+	auto iter = funcs.find(tk.getValue());
+	if (iter == funcs.end()) {
 		return r;
 	} else {
-		return iter->second;
+		return iter->second.args;
 	}
 }
 
-void SymbolTable::newSub() {
-	using namespace std;
-	map<const std::string, IdenType> sub;
-	tables.push_back(sub);
+void SymbolTable::newSub(std::string funcName) {
+	curName = funcName;
 }
 
 void SymbolTable::exitSub() {
-	tables.pop_back();
+	localVars[curName] = curVars;
+	curVars.clear();
+}
+
+std::map<const std::string, varInfo> SymbolTable::getGlobals() {
+	return globalVars;
+}
+
+std::map<const std::string, varInfo> SymbolTable::getLocals(std::string funcName) {
+	std::map<const std::string, varInfo> nmap;
+	auto iter = localVars.find(funcName);
+	if (iter != localVars.end()) {
+		return iter->second;
+	} else {
+		return nmap;
+	}
 }

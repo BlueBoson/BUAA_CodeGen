@@ -22,6 +22,16 @@ enum class ArgType {
 	VOID,
 };
 
+struct varInfo {
+	IdenType type;
+	int dim;
+};
+
+struct funcInfo {
+	IdenType type;
+	std::vector<ArgType> args;
+};
+
 class SymbolTable {
 public:
 	static SymbolTable& getInstance();
@@ -30,12 +40,18 @@ public:
 	IdenType find(Token& tk);
 	void addArgs(Token& tk, std::vector<ArgType>& args);
 	std::vector<ArgType> getArgs(Token& tk);
-	void newSub();
+	void addDim(Token& tk, int dim);
+	void newSub(std::string funcName);
 	void exitSub();
+	std::map<const std::string, varInfo> getGlobals();
+	std::map<const std::string, varInfo> getLocals(std::string funcName);
 
 private:
 	static SymbolTable* instance;
-	std::vector<std::map<const std::string, IdenType>> tables;
-	std::map<const std::string, std::vector<ArgType>> funcArgs;
+	std::map<const std::string, varInfo> globalVars;
+	std::map<const std::string, funcInfo> funcs;
+	std::string curName;
+	std::map<const std::string, varInfo> curVars;
+	std::map<const std::string, std::map<const std::string, varInfo>> localVars;
 };
 

@@ -373,7 +373,6 @@ void GrammaticalAnalyser::confirmGrammar(GrammarType gType) {
 
 void GrammaticalAnalyser::r_program() {
 	enterGrammar(GrammarType::PROGRAM);
-	symbolTable->newSub();
 	if (curType() == TkType::CONSTTK) {
 		r_constDescript();
 	}
@@ -398,7 +397,6 @@ void GrammaticalAnalyser::r_program() {
 		}
 	}
 	r_mainFunc();
-	symbolTable->exitSub();
 	confirmGrammar(GrammarType::PROGRAM);
 }
 
@@ -432,7 +430,7 @@ void GrammaticalAnalyser::r_varDescript() {
 void GrammaticalAnalyser::r_retFuncDef() {
 	enterGrammar(GrammarType::RET_FUNC_DEF);
 	Token idTk = r_declareHead();
-	symbolTable->newSub();
+	symbolTable->newSub(idTk.getValue());
 	assertCurTk(TkType::LPARENT);
 	auto argList = r_argList();
 	symbolTable->addArgs(idTk, argList);
@@ -458,7 +456,7 @@ void GrammaticalAnalyser::r_voidFuncDef() {
 		nextTk();
 	}
 	MidCode(MidType::FUNC, "void", idTk.getValue()).emit();
-	symbolTable->newSub();
+	symbolTable->newSub(idTk.getValue());
 	enterFunc(ArgType::VOID);
 	assertCurTk(TkType::LPARENT);
 	auto argList = r_argList();
@@ -474,7 +472,7 @@ void GrammaticalAnalyser::r_voidFuncDef() {
 
 void GrammaticalAnalyser::r_mainFunc() {
 	enterGrammar(GrammarType::MAIN_FUNC);
-	symbolTable->newSub();
+	symbolTable->newSub("main");
 	enterFunc(ArgType::VOID);
 	assertCurTk(TkType::VOIDTK);
 	assertCurTk(TkType::MAINTK);
@@ -566,6 +564,7 @@ void GrammaticalAnalyser::r_varDef() {
 		if (curType() == TkType::COMMA) {
 			nextTk();
 		}
+		Token idTk = curTk();
 		if (curType() == TkType::IDENFR) {
 			code.setResOp(curValue());
 			tryPush(type);
@@ -575,8 +574,10 @@ void GrammaticalAnalyser::r_varDef() {
 		}
 		if (curType() == TkType::LBRACK) {
 			nextTk();
-			std::string dim = std::to_string(r_unsignedInt());
+			int iDim = r_unsignedInt();
+			std::string dim = std::to_string(iDim);
 			code.setOp2(dim);
+			symbolTable->addDim(idTk, iDim);
 			assertCurTk(TkType::RBRACK);
 		}
 		code.emit();
