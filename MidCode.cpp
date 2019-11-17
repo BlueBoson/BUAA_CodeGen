@@ -3,11 +3,13 @@
 int MidCode::tvCount = 0;
 int MidCode::lbCount = 0;
 std::ofstream* MidCode::ofs = nullptr;
+std::vector<MidCode> MidCode::vec;
 
 void MidCode::init(std::ofstream& _ofs) {
 	ofs = &_ofs;
 	tvCount = 0;
 	lbCount = 0;
+	vec.clear();
 }
 
 std::string MidCode::genTv() {
@@ -15,7 +17,7 @@ std::string MidCode::genTv() {
 }
 
 std::string MidCode::genLb() {
-	return "@label" + std::to_string(lbCount++);
+	return "label" + std::to_string(lbCount++);
 }
 
 MidCode::MidCode(MidType type) : MidCode(type, "", "", "") {}
@@ -43,8 +45,29 @@ void MidCode::setResOp(std::string resOp) {
 	this->resOp = resOp;
 }
 
+MidType MidCode::getType() {
+	return type;
+}
+
+std::string MidCode::getOp1() {
+	return op1;
+}
+
+std::string MidCode::getOp2() {
+	return op2;
+}
+
+std::string MidCode::getResOp() {
+	return resOp;
+}
+
+std::vector<MidCode> MidCode::getVec() {
+	return vec;
+}
+
 void MidCode::emit() {
 	using namespace std;
+	vec.push_back(*this);
 	// *ofs << resOp << op1 << op2 << ")";
 	switch (type) {
 	case MidType::NONE:

@@ -41,17 +41,23 @@ public:
 	void addArgs(Token& tk, std::vector<ArgType>& args);
 	std::vector<ArgType> getArgs(Token& tk);
 	void addDim(Token& tk, int dim);
+	void addStr(const std::string& str);
 	void newSub(std::string funcName);
 	void exitSub();
 	std::map<const std::string, varInfo> getGlobals();
 	std::map<const std::string, varInfo> getLocals(std::string funcName);
+	std::map<const std::string, std::string> getStrs();
+	std::string getStr(const std::string& str);
 
 private:
 	static SymbolTable* instance;
+	SymbolTable();
+	int strCount;
 	std::map<const std::string, varInfo> globalVars;
 	std::map<const std::string, funcInfo> funcs;
 	std::string curName;
 	std::map<const std::string, varInfo> curVars;
 	std::map<const std::string, std::map<const std::string, varInfo>> localVars;
+	std::map<const std::string, std::string> strs;
 };
 

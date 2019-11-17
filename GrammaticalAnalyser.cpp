@@ -914,8 +914,14 @@ void GrammaticalAnalyser::r_readState() {
 		if (curType() == TkType::COMMA) {
 			nextTk();
 		}
-		MidCode(MidType::READ, curValue()).emit();
-		useIden();
+		MidCode mid(MidType::READ, curValue());
+		IdenType type = useIden();
+		if (type == IdenType::VAR_INT) {
+			mid.setOp1(S_INT);
+		} else if (type == IdenType::VAR_CHAR) {
+			mid.setOp2(S_CHAR);
+		}
+		mid.emit();
 	} while (curType() == TkType::COMMA);
 	assertCurTk(TkType::RPARENT);
 	confirmGrammar(GrammarType::READ_STATE);
@@ -932,13 +938,23 @@ void GrammaticalAnalyser::r_writeState() {
 		if (curType() == TkType::COMMA) {
 			nextTk();
 			std::string symbol = MidCode::genTv();
-			r_expression(symbol);
+			ArgType type = r_expression(symbol);
+			if (type == ArgType::INT) {
+				code.setResOp(S_INT);
+			} else if (type == ArgType::CHAR) {
+				code.setResOp(S_CHAR);
+			}
 			code.setOp2(symbol);
 		}
 		code.emit();
 	} else {
 		std::string symbol = MidCode::genTv();
-		r_expression(symbol);
+		ArgType type = r_expression(symbol);
+		if (type == ArgType::INT) {
+			code.setResOp(S_INT);
+		} else if (type == ArgType::CHAR) {
+			code.setResOp(S_CHAR);
+		}
 		code.setOp2(symbol);
 		code.emit();
 	}
@@ -1050,16 +1066,20 @@ int GrammaticalAnalyser::r_step() {
 std::vector<ArgType> GrammaticalAnalyser::r_valueList() {
 	enterGrammar(GrammarType::VALUE_LIST);
 	std::vector<ArgType> args;
+	std::vector<MidCode> mids;
 	if (curType() != TkType::RPARENT) {
 		std::string symbol = MidCode::genTv();
 		args.push_back(r_expression(symbol));
-		MidCode(MidType::PUSH, symbol).emit();
+		mids.push_back(MidCode(MidType::PUSH, symbol));
 		while (curType() == TkType::COMMA) {
 			nextTk();
 			symbol = MidCode::genTv();
 			args.push_back(r_expression(symbol));
-			MidCode(MidType::PUSH, symbol).emit();
+			mids.push_back(MidCode(MidType::PUSH, symbol));
 		}
+	}
+	for (auto mid : mids) {
+		mid.emit();
 	}
 	confirmGrammar(GrammarType::VALUE_LIST);
 	return args;
@@ -1124,7 +1144,7 @@ ArgType GrammaticalAnalyser::r_factor(std::string& symbol) {
 		assertCurTk(TkType::RPARENT);
 	} else if (type == TkType::PLUS || type == TkType::MINU || type == TkType::INTCON) {
 		int value = r_integer();
-		MidCode(MidType::ASSIGN, symbol, std::string({ C_LPARENT }) + std::to_string(value) + std::string({ C_RPARENT }), "").emit();
+		MidCode(MidType::ASSIGN, symbol, std::to_string(value), "").emit();
 	} else if (type == TkType::CHARCON) {
 		isInt = false;
 		MidCode(MidType::ASSIGN, symbol, std::string({ C_SQUOTE }) + curValue() + std::string({ C_SQUOTE }), "").emit();
@@ -1141,6 +1161,7 @@ ArgType GrammaticalAnalyser::r_factor(std::string& symbol) {
 std::string GrammaticalAnalyser::r_string() {
 	enterGrammar(GrammarType::STRING);
 	std::string value = curValue();
+	symbolTable->addStr(value);
 	assertCurTk(TkType::STRCON);
 	confirmGrammar(GrammarType::STRING);
 	return value;

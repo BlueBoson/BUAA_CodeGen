@@ -9,6 +9,10 @@ SymbolTable& SymbolTable::getInstance() {
 	return *instance;
 }
 
+SymbolTable::SymbolTable() {
+	strCount = 0;
+}
+
 void SymbolTable::deleteInstance() {
 	delete instance;
 	instance = NULL;
@@ -24,6 +28,9 @@ bool SymbolTable::push(Token& tk, IdenType type) {
 			std::vector<ArgType> initArgs;
 			funcs[symName] = { type, initArgs };
 		} else {
+			if (symName == "main") {
+				return false;
+			}
 			globalVars[symName] = { type, 0 };
 		}
 	} else {
@@ -83,6 +90,7 @@ void SymbolTable::newSub(std::string funcName) {
 void SymbolTable::exitSub() {
 	localVars[curName] = curVars;
 	curVars.clear();
+	curName = "";
 }
 
 std::map<const std::string, varInfo> SymbolTable::getGlobals() {
@@ -97,4 +105,16 @@ std::map<const std::string, varInfo> SymbolTable::getLocals(std::string funcName
 	} else {
 		return nmap;
 	}
+}
+
+void SymbolTable::addStr(const std::string& str) {
+	strs[str] = "_str_" + std::to_string(strCount++);
+}
+
+std::map<const std::string, std::string> SymbolTable::getStrs() {
+	return strs;
+}
+
+std::string SymbolTable::getStr(const std::string & str) {
+	return strs[str];
 }
