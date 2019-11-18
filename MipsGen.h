@@ -27,8 +27,7 @@ struct RegInfo {
 };
 
 struct RunVarInfo {
-	bool inMem;
-	bool alive;
+	bool inReg;
 	int reg;
 	int stackPos;
 	ArgType atype;
@@ -54,6 +53,8 @@ private:
 	std::map<const std::string, varInfo> globals;
 	int srDepth;
 	int trDepth;
+	int srCount;
+	int trCount;
 
 	void genCode(MipsCode code);
 	void load(int rt, int rs, std::string iorl, ArgType atype);
@@ -71,7 +72,8 @@ private:
 	void deactive(const std::string& varName);
 	void popTr();
 	void freshSr();
-	int allocSr(std::string& varName);
-	int allocTr(std::string& varName);
+	int allocSr();
+	int allocTr();
+	void error(const std::string& info);
 };
 

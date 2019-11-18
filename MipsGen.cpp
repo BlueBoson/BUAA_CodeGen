@@ -15,7 +15,7 @@ void MipsGen::deleteInstance() {
 }
 
 MipsGen::MipsGen(std::vector<MidCode>& mid, std::ofstream& obj, SymbolTable& table) : 
-	mid(mid), obj(obj), table(table), srDepth(0), trDepth(0) {
+	mid(mid), obj(obj), table(table), srDepth(0), trDepth(0), srCount(0), trCount(0) {
 	regs = regVec();
 	globals = table.getGlobals();
 }
@@ -46,6 +46,31 @@ std::vector<RegInfo> regVec() {
 	vec.push_back({ "$ra", "#ra", true });
 }
 
+void MipsGen::genCode(MipsCode code) {
+	obj << code.toString() << std::endl;
+}
+
+void MipsGen::load(int rt, int rs, std::string iorl, ArgType atype) {
+	MipsType type = (atype == ArgType::INT) ? MipsType::LW : MipsType::LB;
+	genCode(MipsCode::iOp(type, rt, rs, iorl));
+}
+
+void MipsGen::store(int rt, int rs, std::string iorl, ArgType atype) {
+	MipsType type = (atype == ArgType::INT) ? MipsType::SW : MipsType::SB;
+	genCode(MipsCode::iOp(type, rt, rs, iorl));
+}
+
+void MipsGen::load(int rt, int rs, int iorl, ArgType atype) {
+	MipsType type = (atype == ArgType::INT) ? MipsType::LW : MipsType::LB;
+	genCode(MipsCode::iOp(type, rt, rs, iorl));
+}
+
+void MipsGen::store(int rt, int rs, int iorl, ArgType atype) {
+	MipsType type = (atype == ArgType::INT) ? MipsType::SW : MipsType::SB;
+	genCode(MipsCode::iOp(type, rt, rs, iorl));
+}
+
+
 void MipsGen::gen() {
 	if (mid.empty()) {
 		return;
@@ -69,7 +94,7 @@ void MipsGen::global() {
 			obj << GLOBAL_PREFIX << iter->getResOp() + ": .byte " << iter->getOp2() << endl;
 			obj << ".align 2" << endl;
 		} else {
-			cerr << "illegal const type" << endl;
+			error("illegal const type");
 		}
 		++iter;
 	}
@@ -86,7 +111,6 @@ void MipsGen::global() {
 			} else {
 				obj << GLOBAL_PREFIX << iter->getResOp() + ": .byte 0:" << iter->getOp2() << endl;
 			}
-			obj << ".align 2" << endl;
 		} else {
 			cerr << "illegal const type" << endl;
 		}
@@ -127,9 +151,9 @@ void MipsGen::enterFunc() {
 	genCode(MipsCode::iOp(MipsType::ADDIU, R_SP, R_SP, -4 * len));
 	for (int i = 0; iter != mid.end() && iter->getType() == MidType::PARAM; ++iter, ++i) {
 		std::string paraName = iter->getResOp();
-		int sr = allocSr(paraName);
+		int sr = allocSr();
 		ArgType atype = iter->getOp1() == S_CHAR ? ArgType::CHAR : ArgType::INT;
-		vars[paraName] = { true, true, sr, -4 * (i + 1), atype, RunVarType::LOCAL};
+		vars[paraName] = { true, sr, -4 * (i + 1), atype, RunVarType::LOCAL};
 		if (i < 4) {
 			genCode(MipsCode::iOp(MipsType::ADDIU, sr, R_AS[i], "0"));
 			store(sr, R_SP, 4 * (i + 1), atype);
@@ -139,9 +163,9 @@ void MipsGen::enterFunc() {
 	}
 	while (iter != mid.end() && iter->getType() == MidType::CONST) {
 		std::string paraName = iter->getResOp();
-		int sr = allocSr(paraName);
+		int sr = allocSr();
 		ArgType atype = iter->getOp1() == S_CHAR ? ArgType::CHAR : ArgType::INT;
-		vars[paraName] = { true, true, sr, srDepth, atype, RunVarType::LOCAL };
+		vars[paraName] = { true, sr, srDepth, atype, RunVarType::LOCAL };
 		genCode(MipsCode::iOp(MipsType::LI, sr, 0, iter->getOp2()));
 		store(sr, R_SP, 0, atype);
 		genCode(MipsCode::iOp(MipsType::ADDIU, R_SP, R_SP, -4));
@@ -151,15 +175,25 @@ void MipsGen::enterFunc() {
 	int old = srDepth;
 	while (iter != mid.end() && iter->getType() == MidType::VAR) {
 		std::string paraName = iter->getResOp();
-		int sr = allocSr(paraName);
 		ArgType atype = iter->getOp1() == S_CHAR ? ArgType::CHAR : ArgType::INT;
-		vars[paraName] = { false, true, sr, srDepth, atype, RunVarType::LOCAL };
-		if (iter->getOp2().empty()) {
-			srDepth += 4;
-		} else {
-			srDepth += 4 * stoi(iter->getOp2());
+		if (atype == ArgType::INT && srDepth % 4) {
+			srDepth += 4 - srDepth % 4;
 		}
+		vars[paraName] = { false, 0, srDepth, atype, RunVarType::LOCAL };
+		int space = 0;
+		if (iter->getOp2().empty()) {
+			space = 1;
+		} else {
+			space = stoi(iter->getOp2());
+		}
+		if (atype == ArgType::INT) {
+			space *= 4;
+		}
+		srDepth += space;
 		++iter;
+	}
+	if (srDepth % 4) {
+		srDepth += 4 - srDepth % 4;
 	}
 	if (srDepth > old) {
 		genCode(MipsCode::iOp(MipsType::ADDIU, R_SP, R_SP, old - srDepth));
@@ -283,11 +317,21 @@ void MipsGen::funcBody(bool main) {
 			int rr = use(iter->getOp2());
 			MipsType objType = (globals[iter->getResOp()].type == IdenType::VAR_INT) ? MipsType::SW : MipsType::SB;
 			if (vars.find(iter->getResOp()) == vars.end()) {
-				genCode(MipsCode::iOp(objType, rr, use(iter->getOp1()), GLOBAL_PREFIX + iter->getResOp()));
+				if (objType == MipsType::SB) {
+					genCode(MipsCode::iOp(objType, rr, use(iter->getOp1()), GLOBAL_PREFIX + iter->getResOp()));
+				} else {
+					genCode(MipsCode::iOp(MipsType::MULI, R_V1, use(iter->getOp1()), 4));
+					genCode(MipsCode::iOp(objType, rr, R_V1, GLOBAL_PREFIX + iter->getResOp()));
+				}
 			} else {
 				int rindex = use(iter->getOp1());
 				int offset = trDepth + srDepth - vars[iter->getResOp()].stackPos;
-				genCode(MipsCode::rOp(MipsType::SUBU, R_V1, R_SP, rindex));
+				if (objType == MipsType::LB) {
+					genCode(MipsCode::rOp(MipsType::SUBU, R_V1, R_SP, rindex));
+				} else {
+					genCode(MipsCode::rOp(MipsType::MULI, R_V1, rindex, 4));
+					genCode(MipsCode::rOp(MipsType::SUBU, R_V1, R_SP, R_V1));
+				}
 				genCode(MipsCode::iOp(objType, rr, R_V1, offset));
 			}
 		}
@@ -297,12 +341,22 @@ void MipsGen::funcBody(bool main) {
 			int rr = use(iter->getOp2());
 			MipsType objType = (globals[iter->getResOp()].type == IdenType::VAR_INT) ? MipsType::LW : MipsType::LB;
 			if (vars.find(iter->getOp1()) == vars.end()) {
-				genCode(MipsCode::iOp(objType, change(iter->getResOp()), rr, GLOBAL_PREFIX + iter->getResOp()));
+				if (objType == MipsType::LB) {
+					genCode(MipsCode::iOp(objType, change(iter->getResOp()), rr, GLOBAL_PREFIX + iter->getResOp()));
+				} else {
+					genCode(MipsCode::rOp(MipsType::MULI, R_V1, rr, 4));
+					genCode(MipsCode::iOp(objType, change(iter->getResOp()), R_V1, GLOBAL_PREFIX + iter->getResOp()));
+				}
 				wb(iter->getResOp());
 			} else {
 				int rchange = change(iter->getOp1());
 				int offset = trDepth + srDepth - vars[iter->getResOp()].stackPos;
-				genCode(MipsCode::rOp(MipsType::SUBU, R_V1, R_SP, rr));
+				if (objType == MipsType::LB) {
+					genCode(MipsCode::rOp(MipsType::SUBU, R_V1, R_SP, rr));
+				} else {
+					genCode(MipsCode::rOp(MipsType::MULI, R_V1, rr, 4));
+					genCode(MipsCode::rOp(MipsType::SUBU, R_V1, R_SP, R_V1));
+				}
 				genCode(MipsCode::iOp(objType, rchange, R_V1, offset));
 			}
 
@@ -329,3 +383,164 @@ void MipsGen::funcBody(bool main) {
 		}
 	}
 }
+
+void MipsGen::quitFunc() {
+	popTr();
+	genCode(MipsCode::iOp(MipsType::ADDIU, R_SP, R_SP, srDepth));
+	srDepth = 0;
+	vars.clear();
+	regs = regVec();
+	++iter;
+}
+
+int MipsGen::use(const std::string& varName) {
+	int reg = 0;
+	if (vars.find(varName) == vars.end()) {
+		if (globals.find(varName) == globals.end()) {
+			error("use var not existed");
+		} else {
+			reg = allocSr();
+			ArgType atype = (globals.find(varName)->second.type == IdenType::VAR_INT || globals.find(varName)->second.type == IdenType::CONST_INT) ?
+				ArgType::INT : ArgType::CHAR;
+			load(reg, R_ZERO, GLOBAL_PREFIX + varName, atype);
+			vars[varName] = { true, reg, 0, atype, RunVarType::GLOBAL };
+		}
+	} else {
+		RunVarInfo info = vars.find(varName)->second;
+		if (info.inReg) {
+			reg = info.reg;
+		} else {
+			if (info.type == RunVarType::LOCAL) {
+				reg = allocSr();
+				load(reg, R_SP, trDepth + srDepth - info.stackPos, info.atype);
+				info.inReg = true;
+				info.reg = reg;
+			} else if (info.type == RunVarType::GLOBAL) {
+				reg = allocSr();
+				load(reg, R_ZERO, GLOBAL_PREFIX + varName, info.atype);
+				info.inReg = true;
+				info.reg = reg;
+			} else if (info.type == RunVarType::TEMP) {
+				reg = allocTr();
+				load(reg, R_SP, trDepth + srDepth - info.stackPos, info.atype);
+				deactive(varName);
+			} else {
+				error("use illegal var");
+			}
+		}
+	}
+	regs[reg].var = varName;
+	regs[reg].full = true;
+	return reg;
+}
+
+int MipsGen::change(const std::string& varName) {
+	int reg = 0;
+	if (vars.find(varName) == vars.end()) {
+		if (globals.find(varName) == globals.end()) {
+			reg = allocTr();
+			vars[varName] = { true, reg, 0, ArgType::INT, RunVarType::TEMP };
+		} else {
+			reg = allocSr();
+			ArgType atype = (globals.find(varName)->second.type == IdenType::VAR_INT || globals.find(varName)->second.type == IdenType::CONST_INT) ?
+				ArgType::INT : ArgType::CHAR;
+			load(reg, R_ZERO, GLOBAL_PREFIX + varName, atype);
+			vars[varName] = { true, reg, 0, atype, RunVarType::GLOBAL };
+		}
+	} else {
+		RunVarInfo info = vars.find(varName)->second;
+		if (info.inReg) {
+			reg = info.reg;
+		} else {
+			if (info.type == RunVarType::LOCAL) {
+				reg = allocSr();
+				load(reg, R_SP, trDepth + srDepth - info.stackPos, info.atype);
+				info.inReg = true;
+				info.reg = reg;
+			} else if (info.type == RunVarType::GLOBAL) {
+				reg = allocSr();
+				load(reg, R_ZERO, GLOBAL_PREFIX + varName, info.atype);
+				info.inReg = true;
+				info.reg = reg;
+			} else if (info.type == RunVarType::TEMP) {
+				reg = allocTr();
+				load(reg, R_SP, trDepth + srDepth - info.stackPos, info.atype);
+				info.inReg = true;
+				info.reg = reg;
+			} else {
+				error("use illegal var");
+			}
+		}
+	}
+	regs[reg].var = varName;
+	regs[reg].full = true;
+	return reg;
+}
+
+void MipsGen::wb(const std::string& varName) {
+	RunVarInfo info = vars.find(varName)->second;
+	if (!info.inReg) {
+		return;
+	}
+}
+
+void MipsGen::deactive(const std::string& varName) {
+	int reg = vars.find(varName)->second.reg;
+	regs[reg].full = false;
+	vars.erase(varName);
+}
+
+void MipsGen::popTr() {
+	for (int i = 0; i < sizeof(R_TS) / sizeof(R_TS[0]); ++i) {
+		if (regs[R_TS[i]].full) {
+			deactive(regs[R_TS[i]].var);
+		}
+	}
+	if (trDepth) {
+		genCode(MipsCode::iOp(MipsType::ADDIU, R_SP, R_SP, trDepth));
+		trDepth = 0;
+	}
+	trCount = 0;
+}
+
+void MipsGen::freshSr() {
+	for (int i = 0; i < sizeof(R_SS) / sizeof(R_SS[0]); ++i) {
+		if (regs[R_SS[i]].full) {
+			regs[R_SS[i]].full = false;
+			vars[regs[R_SS[i]].var].inReg = false;
+		}
+	}
+	srCount = 0;
+}
+
+int MipsGen::allocSr() {
+	int reg = R_SS[srCount];
+	if (regs[reg].full) {
+		regs[reg].full = false;
+		vars[regs[reg].var].inReg = false;
+	}
+	srCount = (srCount >= sizeof(R_SS) / sizeof(R_SS[0]) - 1) ? 0 : srCount + 1;
+	return reg;
+}
+
+int MipsGen::allocTr() {
+	for (int i = 0; i < sizeof(R_TS) / sizeof(R_TS[0]); ++i) {
+		if (!regs[R_TS[i]].full) {
+			return R_TS[i];
+		}
+	}
+	int reg = R_TS[trCount];
+	regs[reg].full = false;
+	genCode(MipsCode::iOp(MipsType::SW, reg, R_SP, 0));
+	genCode(MipsCode::iOp(MipsType::ADDIU, R_SP, R_SP, -4));
+	vars[regs[reg].var].inReg = false;
+	vars[regs[reg].var].stackPos = srDepth + trDepth;
+	trDepth += 4;
+	trCount = (trCount >= sizeof(R_TS) / sizeof(R_TS[0]) - 1) ? 0 : trCount + 1;
+	return reg;
+}
+
+void MipsGen::error(const std::string& info) {
+	obj << info << std::endl;
+}
+
