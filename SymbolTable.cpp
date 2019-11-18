@@ -108,7 +108,7 @@ std::map<const std::string, varInfo> SymbolTable::getLocals(std::string funcName
 }
 
 void SymbolTable::addStr(const std::string& str) {
-	strs[str] = "_str_" + std::to_string(strCount++);
+	strs[std::string({ C_DQUOTE }) + str + std::string({ C_DQUOTE })] = "_str_" + std::to_string(strCount++);
 }
 
 std::map<const std::string, std::string> SymbolTable::getStrs() {

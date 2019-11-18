@@ -21,7 +21,6 @@ enum class RunVarType {
 };
 
 struct RegInfo {
-	std::string name;
 	std::string var;
 	bool full;
 };

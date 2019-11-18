@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <string>
+#include <vector>
 
 constexpr int R_ZERO = 0;
 constexpr int R_V0 = 2;
@@ -17,6 +18,7 @@ constexpr int SYS_READ_CHR = 12;
 constexpr int SYS_EXIT = 10;
 
 enum class MipsType {
+	SYSCALL,
 	// R-type
 	ADDU, // addu $rd, $rs, $rt
 	SUBU, // subu $rd, $rs, $rt
@@ -56,6 +58,7 @@ public:
 	std::string toString();
 
 private:
+	static std::vector<std::string> regName;
 	MipsType type;
 	int rd;
 	int rs;

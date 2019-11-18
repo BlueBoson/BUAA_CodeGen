@@ -1,5 +1,32 @@
 ﻿#include "MipsGen.h"
 
+std::vector<RegInfo> regVec() {
+	std::vector<RegInfo> vec;
+	vec.push_back({ ZERO_TV, true });
+	vec.push_back({ "", true });
+	vec.push_back({ RET_TV, true });
+	vec.push_back({ "", true });
+	for (int i = 0; i < 4; ++i) {
+		vec.push_back({ "", false });
+	}
+	for (int i = 0; i < 8; ++i) {
+		vec.push_back({ "", false });
+	}
+	for (int i = 0; i < 8; ++i) {
+		vec.push_back({ "", false });
+	}
+	for (int i = 8; i < 10; ++i) {
+		vec.push_back({ "", false });
+	}
+	vec.push_back({ "", true });
+	vec.push_back({ "", true });
+	vec.push_back({ "", true });
+	vec.push_back({ "", true });
+	vec.push_back({ "", true });
+	vec.push_back({ "", true });
+	return vec;
+}
+
 MipsGen* MipsGen::instance = nullptr;
 
 MipsGen& MipsGen::getInstance(std::vector<MidCode>& mid, std::ofstream& obj, SymbolTable& table) {
@@ -18,32 +45,6 @@ MipsGen::MipsGen(std::vector<MidCode>& mid, std::ofstream& obj, SymbolTable& tab
 	mid(mid), obj(obj), table(table), srDepth(0), trDepth(0), srCount(0), trCount(0) {
 	regs = regVec();
 	globals = table.getGlobals();
-}
-
-std::vector<RegInfo> regVec() {
-	std::vector<RegInfo> vec;
-	vec.push_back({ "$zero", "#ZERO", true });
-	vec.push_back({ "$at", "", true });
-	vec.push_back({ "$v0", "#RET", true });
-	vec.push_back({ "$v1", "", true });
-	for (int i = 0; i < 4; ++i) {
-		vec.push_back({ "$a" + std::to_string(i), "", false });
-	}
-	for (int i = 0; i < 8; ++i) {
-		vec.push_back({ "$t" + std::to_string(i), "", false });
-	}
-	for (int i = 0; i < 8; ++i) {
-		vec.push_back({ "$s" + std::to_string(i), "", false });
-	}
-	for (int i = 8; i < 10; ++i) {
-		vec.push_back({ "$t" + std::to_string(i), "", false });
-	}
-	vec.push_back({ "$k0", "", true });
-	vec.push_back({ "$k1", "", true });
-	vec.push_back({ "$gp", "", true });
-	vec.push_back({ "$sp", "", true });
-	vec.push_back({ "$fp", "", true });
-	vec.push_back({ "$ra", "#ra", true });
 }
 
 void MipsGen::genCode(MipsCode code) {
@@ -112,29 +113,36 @@ void MipsGen::global() {
 				obj << GLOBAL_PREFIX << iter->getResOp() + ": .byte 0:" << iter->getOp2() << endl;
 			}
 		} else {
-			cerr << "illegal const type" << endl;
+			error("illegal const type");
 		}
 		++iter;
 	}
 	for (auto str : table.getStrs()) {
-		obj << str.second << ": .asciiz \"" << str.first << "\"" << endl;
+		obj << str.second << ": .asciiz " << str.first << endl;
 	}
-	obj << "_srt_" << STR_LB << ": .asciiz \"\\n\"" << endl;
+	obj << STR_LB << ": .asciiz \"\\n\"" << endl;
 }
 
 void MipsGen::func(){
 	using namespace std;
 	if (iter->getType() != MidType::FUNC) {
-		cerr << "expected init func" << endl;
+		error("expected init func");
 	} else {
-		obj << FUNC_PREFIX << iter->getOp2() << ":" << endl;
+		string funcName = iter->getOp2();
+		obj << FUNC_PREFIX << funcName << ":" << endl;
 		++iter;
-		if (iter->getOp2() == S_MAIN) {
+		if (funcName == S_MAIN) {
+			enterFunc();
 			funcBody(true);
-			obj << "li $v0, 10" << endl;
-			obj << "syscall" << endl;
+			genCode(MipsCode::iOp(MipsType::LI, R_V0, 0, SYS_EXIT));
+			genCode(MipsCode::syscall());
 			++iter;
 		} else {
+			int len = sizeof(R_SS) / sizeof(R_SS[0]);
+			for (int i = 0; i < len; ++i) {
+				genCode(MipsCode::iOp(MipsType::SW, R_SS[i], R_SP, -4 * i));
+			}
+			genCode(MipsCode::iOp(MipsType::ADDIU, R_SP, R_SP, -4 * len));
 			enterFunc();
 			funcBody(false);
 			quitFunc();
@@ -144,11 +152,6 @@ void MipsGen::func(){
 
 void MipsGen::enterFunc() {
 	using namespace std;
-	int len = sizeof(R_SS) / sizeof(R_SS[0]);
-	for (int i = 0; i < len; ++i) {
-		genCode(MipsCode::iOp(MipsType::SW, R_SS[i], R_SP, -4 * i));
-	}
-	genCode(MipsCode::iOp(MipsType::ADDIU, R_SP, R_SP, -4 * len));
 	for (int i = 0; iter != mid.end() && iter->getType() == MidType::PARAM; ++iter, ++i) {
 		std::string paraName = iter->getResOp();
 		int sr = allocSr();
@@ -203,7 +206,7 @@ void MipsGen::enterFunc() {
 void MipsGen::funcBody(bool main) {
 	using namespace std;
 	vector<MidCode> params;
-	for (MidType type = iter->getType(); iter != mid.end() && type != MidType::END_FUNC; ++iter) {
+	for (MidType type = iter->getType(); iter != mid.end() && type != MidType::END_FUNC; type = (++iter)->getType()) {
 		switch (type) {
 		case MidType::LABEL:
 			popTr();
@@ -241,7 +244,7 @@ void MipsGen::funcBody(bool main) {
 				genCode(MipsCode::iOp(MipsType::LI, R_V0, 0, SYS_READ_CHR));
 			}
 			genCode(MipsCode::syscall());
-			genCode(MipsCode::iOp(MipsType::ADDIU, change(iter->getResOp()), R_AS[0], 0));
+			genCode(MipsCode::iOp(MipsType::ADDIU, change(iter->getResOp()), R_V0, 0));
 			wb(iter->getResOp());
 			break;
 		case MidType::RETURN:
@@ -296,7 +299,7 @@ void MipsGen::funcBody(bool main) {
 			MipsType objType = (type == MidType::BLTZ) ? MipsType::BLTZ :
 				(type == MidType::BLEZ) ? MipsType::BLEZ :
 				(type == MidType::BGTZ) ? MipsType::BGTZ : MipsType::BGEZ;
-			genCode(MipsCode::iOp(objType, r, 0, LABEL_PREFIX + iter->getResOp()));
+			genCode(MipsCode::iOp(objType, 0, r, LABEL_PREFIX + iter->getResOp()));
 			freshSr();
 		}
 			break;
@@ -377,7 +380,7 @@ void MipsGen::funcBody(bool main) {
 		}
 			break;
 		default:
-			cerr << "unexpected midtype" << endl;
+			error("unexpected midtype");
 			++iter;
 			break;
 		}
@@ -390,10 +393,17 @@ void MipsGen::quitFunc() {
 	srDepth = 0;
 	vars.clear();
 	regs = regVec();
+	genCode(MipsCode::rOp(MipsType::JR, 0, R_RA, 0));
 	++iter;
 }
 
 int MipsGen::use(const std::string& varName) {
+	if (varName == RET_TV) {
+		return R_V0;
+	}
+	if (varName == ZERO_TV) {
+		return R_ZERO;
+	}
 	int reg = 0;
 	if (vars.find(varName) == vars.end()) {
 		if (globals.find(varName) == globals.end()) {
@@ -406,7 +416,7 @@ int MipsGen::use(const std::string& varName) {
 			vars[varName] = { true, reg, 0, atype, RunVarType::GLOBAL };
 		}
 	} else {
-		RunVarInfo info = vars.find(varName)->second;
+		RunVarInfo& info = vars.find(varName)->second;
 		if (info.inReg) {
 			reg = info.reg;
 		} else {
@@ -423,10 +433,13 @@ int MipsGen::use(const std::string& varName) {
 			} else if (info.type == RunVarType::TEMP) {
 				reg = allocTr();
 				load(reg, R_SP, trDepth + srDepth - info.stackPos, info.atype);
-				deactive(varName);
 			} else {
 				error("use illegal var");
 			}
+		}
+		if (info.type == RunVarType::TEMP) {
+			deactive(varName);
+			return reg;
 		}
 	}
 	regs[reg].var = varName;
@@ -435,6 +448,12 @@ int MipsGen::use(const std::string& varName) {
 }
 
 int MipsGen::change(const std::string& varName) {
+	if (varName == RET_TV) {
+		return R_V0;
+	}
+	if (varName == ZERO_TV) {
+		return R_ZERO;
+	}
 	int reg = 0;
 	if (vars.find(varName) == vars.end()) {
 		if (globals.find(varName) == globals.end()) {
@@ -448,7 +467,7 @@ int MipsGen::change(const std::string& varName) {
 			vars[varName] = { true, reg, 0, atype, RunVarType::GLOBAL };
 		}
 	} else {
-		RunVarInfo info = vars.find(varName)->second;
+		RunVarInfo& info = vars.find(varName)->second;
 		if (info.inReg) {
 			reg = info.reg;
 		} else {
@@ -478,9 +497,14 @@ int MipsGen::change(const std::string& varName) {
 }
 
 void MipsGen::wb(const std::string& varName) {
-	RunVarInfo info = vars.find(varName)->second;
-	if (!info.inReg) {
+	if (varName == RET_TV || varName == ZERO_TV || vars.find(varName) == vars.end()) {
 		return;
+	}
+	RunVarInfo info = vars.find(varName)->second;
+	if (info.type == RunVarType::LOCAL) {
+		store(info.reg, R_SP, srDepth + trDepth - info.stackPos, info.atype);
+	} else if (info.type == RunVarType::GLOBAL) {
+		store(info.reg, R_ZERO, GLOBAL_PREFIX + varName, info.atype);
 	}
 }
 
@@ -541,6 +565,6 @@ int MipsGen::allocTr() {
 }
 
 void MipsGen::error(const std::string& info) {
-	obj << info << std::endl;
+	std::cerr << (iter - mid.begin() + 1) << ":" << info << std::endl;
 }
 
