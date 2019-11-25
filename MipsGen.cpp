@@ -190,6 +190,9 @@ void MipsGen::enterFunc() {
 		} else {
 			space = stoi(iter->getOp2());
 		}
+		if (atype == ArgType::INT) {
+			space *= 4;
+		}
 		srDepth += space;
 		++iter;
 	}
