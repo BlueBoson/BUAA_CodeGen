@@ -180,24 +180,15 @@ void MipsGen::enterFunc() {
 	while (iter != mid.end() && iter->getType() == MidType::VAR) {
 		std::string paraName = iter->getResOp();
 		ArgType atype = iter->getOp1() == S_CHAR ? ArgType::CHAR : ArgType::INT;
-		if (atype == ArgType::INT && srDepth % 4) {
-			srDepth += 4 - srDepth % 4;
-		}
 		vars[paraName] = { false, 0, srDepth, atype, RunVarType::LOCAL };
 		int space = 0;
 		if (iter->getOp2().empty()) {
-			space = 1;
+			space = 4;
 		} else {
-			space = stoi(iter->getOp2());
-		}
-		if (atype == ArgType::INT) {
-			space *= 4;
+			space = 4 * stoi(iter->getOp2());
 		}
 		srDepth += space;
 		++iter;
-	}
-	if (srDepth % 4) {
-		srDepth += 4 - srDepth % 4;
 	}
 	if (srDepth > old) {
 		genCode(MipsCode::iOp(MipsType::ADDIU, R_SP, R_SP, old - srDepth));
@@ -332,12 +323,8 @@ void MipsGen::funcBody(bool main) {
 				MipsType objType = (vars[iter->getResOp()].atype == ArgType::INT) ? MipsType::SW : MipsType::SB;
 				int rindex = use(iter->getOp1());
 				int offset = trDepth + srDepth - vars[iter->getResOp()].stackPos;
-				if (objType == MipsType::LB) {
-					genCode(MipsCode::rOp(MipsType::SUBU, R_V1, R_SP, rindex));
-				} else {
-					genCode(MipsCode::iOp(MipsType::MULI, R_V1, rindex, 4));
-					genCode(MipsCode::rOp(MipsType::SUBU, R_V1, R_SP, R_V1));
-				}
+				genCode(MipsCode::iOp(MipsType::MULI, R_V1, rindex, 4));
+				genCode(MipsCode::rOp(MipsType::SUBU, R_V1, R_SP, R_V1));
 				genCode(MipsCode::iOp(objType, rr, R_V1, offset));
 			}
 		}
@@ -359,12 +346,8 @@ void MipsGen::funcBody(bool main) {
 				MipsType objType = (vars[iter->getOp1()].atype == ArgType::INT) ? MipsType::LW : MipsType::LB;
 				int rchange = change(iter->getResOp());
 				int offset = trDepth + srDepth - vars[iter->getOp1()].stackPos;
-				if (objType == MipsType::LB) {
-					genCode(MipsCode::rOp(MipsType::SUBU, R_V1, R_SP, rr));
-				} else {
-					genCode(MipsCode::iOp(MipsType::MULI, R_V1, rr, 4));
-					genCode(MipsCode::rOp(MipsType::SUBU, R_V1, R_SP, R_V1));
-				}
+				genCode(MipsCode::iOp(MipsType::MULI, R_V1, rr, 4));
+				genCode(MipsCode::rOp(MipsType::SUBU, R_V1, R_SP, R_V1));
 				genCode(MipsCode::iOp(objType, rchange, R_V1, offset));
 			}
 
