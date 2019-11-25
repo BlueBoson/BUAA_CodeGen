@@ -78,7 +78,8 @@ void MipsGen::gen() {
 	}
 	iter = mid.begin();
 	global();
-	obj << ".globl " <<FUNC_PREFIX << S_MAIN << std::endl;
+	// obj << ".globl " <<FUNC_PREFIX << S_MAIN << std::endl;
+	obj << "j " << FUNC_PREFIX << S_MAIN << std::endl;
 	obj << ".text" << std::endl;
 	while (iter != mid.end()) {
 		func();
@@ -188,9 +189,6 @@ void MipsGen::enterFunc() {
 			space = 1;
 		} else {
 			space = stoi(iter->getOp2());
-		}
-		if (atype == ArgType::INT) {
-			space *= 4;
 		}
 		srDepth += space;
 		++iter;
@@ -318,8 +316,9 @@ void MipsGen::funcBody(bool main) {
 		case MidType::LARRAY_ASSIGN:
 		{
 			int rr = use(iter->getOp2());
-			MipsType objType = (globals[iter->getResOp()].type == IdenType::VAR_INT) ? MipsType::SW : MipsType::SB;
+			// MipsType objType = (globals[iter->getResOp()].type == IdenType::VAR_INT) ? MipsType::SW : MipsType::SB;
 			if (vars.find(iter->getResOp()) == vars.end()) {
+				MipsType objType = (globals[iter->getResOp()].type == IdenType::VAR_INT) ? MipsType::SW : MipsType::SB;
 				if (objType == MipsType::SB) {
 					genCode(MipsCode::iOp(objType, rr, use(iter->getOp1()), GLOBAL_PREFIX + iter->getResOp()));
 				} else {
@@ -327,12 +326,13 @@ void MipsGen::funcBody(bool main) {
 					genCode(MipsCode::iOp(objType, rr, R_V1, GLOBAL_PREFIX + iter->getResOp()));
 				}
 			} else {
+				MipsType objType = (vars[iter->getResOp()].atype == ArgType::INT) ? MipsType::SW : MipsType::SB;
 				int rindex = use(iter->getOp1());
 				int offset = trDepth + srDepth - vars[iter->getResOp()].stackPos;
 				if (objType == MipsType::LB) {
 					genCode(MipsCode::rOp(MipsType::SUBU, R_V1, R_SP, rindex));
 				} else {
-					genCode(MipsCode::rOp(MipsType::MULI, R_V1, rindex, 4));
+					genCode(MipsCode::iOp(MipsType::MULI, R_V1, rindex, 4));
 					genCode(MipsCode::rOp(MipsType::SUBU, R_V1, R_SP, R_V1));
 				}
 				genCode(MipsCode::iOp(objType, rr, R_V1, offset));
@@ -342,22 +342,24 @@ void MipsGen::funcBody(bool main) {
 		case MidType::RARRAY_ASSIGN:
 		{
 			int rr = use(iter->getOp2());
-			MipsType objType = (globals[iter->getResOp()].type == IdenType::VAR_INT) ? MipsType::LW : MipsType::LB;
+			// MipsType objType = (globals[iter->getResOp()].type == IdenType::VAR_INT) ? MipsType::LW : MipsType::LB;
 			if (vars.find(iter->getOp1()) == vars.end()) {
+				MipsType objType = (globals[iter->getOp1()].type == IdenType::VAR_INT) ? MipsType::LW : MipsType::LB;
 				if (objType == MipsType::LB) {
-					genCode(MipsCode::iOp(objType, change(iter->getResOp()), rr, GLOBAL_PREFIX + iter->getResOp()));
+					genCode(MipsCode::iOp(objType, change(iter->getResOp()), rr, GLOBAL_PREFIX + iter->getOp1()));
 				} else {
-					genCode(MipsCode::rOp(MipsType::MULI, R_V1, rr, 4));
-					genCode(MipsCode::iOp(objType, change(iter->getResOp()), R_V1, GLOBAL_PREFIX + iter->getResOp()));
+					genCode(MipsCode::iOp(MipsType::MULI, R_V1, rr, 4));
+					genCode(MipsCode::iOp(objType, change(iter->getResOp()), R_V1, GLOBAL_PREFIX + iter->getOp1()));
 				}
 				wb(iter->getResOp());
 			} else {
-				int rchange = change(iter->getOp1());
-				int offset = trDepth + srDepth - vars[iter->getResOp()].stackPos;
+				MipsType objType = (vars[iter->getOp1()].atype == ArgType::INT) ? MipsType::LW : MipsType::LB;
+				int rchange = change(iter->getResOp());
+				int offset = trDepth + srDepth - vars[iter->getOp1()].stackPos;
 				if (objType == MipsType::LB) {
 					genCode(MipsCode::rOp(MipsType::SUBU, R_V1, R_SP, rr));
 				} else {
-					genCode(MipsCode::rOp(MipsType::MULI, R_V1, rr, 4));
+					genCode(MipsCode::iOp(MipsType::MULI, R_V1, rr, 4));
 					genCode(MipsCode::rOp(MipsType::SUBU, R_V1, R_SP, R_V1));
 				}
 				genCode(MipsCode::iOp(objType, rchange, R_V1, offset));
@@ -448,6 +450,9 @@ int MipsGen::use(const std::string& varName) {
 }
 
 int MipsGen::change(const std::string& varName) {
+	if (varName == "$t74") {
+		int i = 0;
+	}
 	if (varName == RET_TV) {
 		return R_V0;
 	}
@@ -463,7 +468,7 @@ int MipsGen::change(const std::string& varName) {
 			reg = allocSr();
 			ArgType atype = (globals.find(varName)->second.type == IdenType::VAR_INT || globals.find(varName)->second.type == IdenType::CONST_INT) ?
 				ArgType::INT : ArgType::CHAR;
-			load(reg, R_ZERO, GLOBAL_PREFIX + varName, atype);
+			// load(reg, R_ZERO, GLOBAL_PREFIX + varName, atype);
 			vars[varName] = { true, reg, 0, atype, RunVarType::GLOBAL };
 		}
 	} else {
@@ -473,21 +478,21 @@ int MipsGen::change(const std::string& varName) {
 		} else {
 			if (info.type == RunVarType::LOCAL) {
 				reg = allocSr();
-				load(reg, R_SP, trDepth + srDepth - info.stackPos, info.atype);
+				// load(reg, R_SP, trDepth + srDepth - info.stackPos, info.atype);
 				info.inReg = true;
 				info.reg = reg;
 			} else if (info.type == RunVarType::GLOBAL) {
 				reg = allocSr();
-				load(reg, R_ZERO, GLOBAL_PREFIX + varName, info.atype);
+				// load(reg, R_ZERO, GLOBAL_PREFIX + varName, info.atype);
 				info.inReg = true;
 				info.reg = reg;
 			} else if (info.type == RunVarType::TEMP) {
 				reg = allocTr();
-				load(reg, R_SP, trDepth + srDepth - info.stackPos, info.atype);
+				// load(reg, R_SP, trDepth + srDepth - info.stackPos, info.atype);
 				info.inReg = true;
 				info.reg = reg;
 			} else {
-				error("use illegal var");
+				error("change illegal var");
 			}
 		}
 	}

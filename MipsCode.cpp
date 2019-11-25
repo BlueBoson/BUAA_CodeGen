@@ -93,10 +93,10 @@ std::string MipsCode::toString() {
 		op = "subiu " + srt + ", " + srs + ", " + iorl;
 		break;
 	case MipsType::MULI:
-		op = "muli " + srt + ", " + srs + ", " + iorl;
+		op = "mul " + srt + ", " + srs + ", " + iorl;
 		break;
 	case MipsType::DIVI:
-		op = "divi " + srt + ", " + srs + ", " + iorl;
+		op = "div " + srt + ", " + srs + ", " + iorl;
 		break;
 	case MipsType::BEQ:
 		op = "beq " + srs + ", " + srt + ", " + iorl;

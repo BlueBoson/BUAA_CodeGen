@@ -1,5 +1,8 @@
 Debug/
+Release/
+testfiles/
 *.txt
 *.vcxproj*
 *.zip
 *.rar
+*.jar
