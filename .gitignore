@@ -1,6 +1,7 @@
 Debug/
 Release/
 testfiles/
+submission/
 *.txt
 *.vcxproj*
 *.zip

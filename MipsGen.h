@@ -62,7 +62,7 @@ private:
 	void store(int rt, int rs, int iorl, ArgType atype);
 	void global();
 	void func();
-	void enterFunc();
+	void enterFunc(bool main);
 	void funcBody(bool main);
 	void quitFunc();
 	int use(const std::string& varName);
