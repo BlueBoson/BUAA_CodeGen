@@ -73,6 +73,7 @@ private:
 	void freshSr();
 	int allocSr();
 	int allocTr();
+	void clearGlobal();
 	void error(const std::string& info);
 };
 

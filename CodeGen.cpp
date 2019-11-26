@@ -4,7 +4,7 @@
 #include "MidCode.h"
 #include "MipsGen.h"
 
-constexpr auto SRC_FILE = "testfiles/3_stack.txt";
+constexpr auto SRC_FILE = "testfiles/8_rec.txt";
 constexpr auto OUTPUT_FILE = "output.txt";
 constexpr auto ERROR_FILE = "error.txt";
 constexpr auto LOG_FILE = "log.txt";

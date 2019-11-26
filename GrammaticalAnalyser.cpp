@@ -831,7 +831,9 @@ void GrammaticalAnalyser::r_loopState() {
 		int value = r_step();
 		assertCurTk(TkType::RPARENT);
 		r_statement();
-		MidCode(mtype, lsymbol, rsymbol, std::to_string(value)).emit();
+		std::string tv = MidCode::genTv();
+		MidCode(MidType::ASSIGN, tv, std::to_string(value), "").emit();
+		MidCode(mtype, lsymbol, rsymbol, tv).emit();
 		MidCode(MidType::JMP, startLabel).emit();
 		MidCode(MidType::LABEL, endLabel).emit();
 	} else {
