@@ -1,6 +1,7 @@
-﻿#pragma once
+#pragma once
 
 #include <queue>
+#include <stack>
 #include "LexicalAnalyser.h"
 #include "SymbolTable.h"
 #include "grammar.h"

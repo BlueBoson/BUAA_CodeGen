@@ -1,9 +1,10 @@
-﻿#include "MidCode.h"
+#include "MidCode.h"
 
 int MidCode::tvCount = 0;
 int MidCode::lbCount = 0;
 std::ofstream* MidCode::ofs = nullptr;
 std::vector<MidCode> MidCode::vec;
+std::vector<MidCode>* MidCode::holdVec = nullptr;
 
 void MidCode::init(std::ofstream& _ofs) {
 	ofs = &_ofs;
@@ -18,6 +19,14 @@ std::string MidCode::genTv() {
 
 std::string MidCode::genLb() {
 	return "label" + std::to_string(lbCount++);
+}
+
+void MidCode::hold(std::vector<MidCode>* vec) {
+	holdVec = vec;
+}
+
+void MidCode::cancelHold() {
+	holdVec = nullptr;
 }
 
 MidCode::MidCode(MidType type) : MidCode(type, "", "", "") {}
@@ -66,101 +75,110 @@ std::vector<MidCode> MidCode::getVec() {
 }
 
 void MidCode::emit() {
+	if (holdVec) {
+		holdVec->push_back(*this);
+		return;
+	}
 	using namespace std;
 	vec.push_back(*this);
-	// *ofs << resOp << op1 << op2 << ")";
+	*ofs << toString() << endl;
+}
+
+std::string MidCode::toString() {
+	using namespace std;
+	string s;
 	switch (type) {
 	case MidType::NONE:
-		*ofs << "<nop>" << endl;
+		s = "<nop>";
 		break;
 	case MidType::END_FUNC:
-		*ofs << "<end> " << resOp << endl;
+		s = "<end> " + resOp;
 		break;
 	case MidType::LABEL:
-		*ofs << resOp << ":" << endl;
+		s = resOp + ":";
 		break;
 	case MidType::JMP:
-		*ofs << "<jmp> " << resOp << endl;
+		s = "<jmp> " + resOp;
 		break;
 	case MidType::PUSH:
-		*ofs << "<push> " << resOp << endl;
+		s = "<push> " + resOp;
 		break;
 	case MidType::CALL:
-		*ofs << "<call> " << resOp << endl;
+		s = "<call> " + resOp;
 		break;
 	case MidType::READ:
-		*ofs << "<read> " << resOp << endl;
+		s = "<read> " + resOp;
 		break;
 	case MidType::RETURN:
-		*ofs << "<ret> " << resOp << endl;
+		s = "<ret> " + resOp;
 		break;
 	case MidType::FUNC:
-		*ofs << "<func> " << op1 << " " << op2 << "()" << endl;
+		s = "<func> " + op1 + " " + op2 + "()";
 		break;
 	case MidType::WRITE:
-		*ofs << "<write> ";
+		s = "<write> ";
 		if (op1.empty()) {
-			*ofs << op2 << endl;
+			s += op2;
 		} else if (op2.empty()) {
-			*ofs << op1 << endl;
+			s += op1;
 		} else {
-			*ofs << op1 << ", " << op2 << endl;
+			s += op1 + ", " + op2;
 		}
 		break;
 	case MidType::VAR:
-		*ofs << "<var> " << op1 << " " << resOp;
+		s = "<var> " + op1 + " " + resOp;
 		if (!op2.empty()) {
-			*ofs << "[" << op2 << "]";
+			s += "[" + op2 + "]";
 		}
-		*ofs << endl;
 		break;
 	case MidType::PARAM:
-		*ofs << "<param> " << op1 << " " << resOp << endl;
+		s = "<param> " + op1 + " " + resOp;
 		break;
 	case MidType::CONST:
-		*ofs << "<const> " << op1 << " " << resOp << " = " << op2 << endl;
+		s = "<const> " + op1 + " " + resOp + " = " + op2;
 		break;
 	case MidType::BEQ:
-		*ofs << "<beq> " << op1 << ", " << op2 << ", " << resOp << endl;
+		s = "<beq> " + op1 + ", " + op2 + ", " + resOp;
 		break;
 	case MidType::BNE:
-		*ofs << "<bne> " << op1 << ", " << op2 << ", " << resOp << endl;
+		s = "<bne> " + op1 + ", " + op2 + ", " + resOp;
 		break;
 	case MidType::BLTZ:
-		*ofs << "<bltz> " << op1 << ", " << resOp << endl;
+		s = "<bltz> " + op1 + ", " + resOp;
 		break;
 	case MidType::BLEZ:
-		*ofs << "<blez> " << op1 << ", " << resOp << endl;
+		s = "<blez> " + op1 + ", " + resOp;
 		break;
 	case MidType::BGTZ:
-		*ofs << "<bgtz> " << op1 << ", " << resOp << endl;
+		s = "<bgtz> " + op1 + ", " + resOp;
 		break;
 	case MidType::BGEZ:
-		*ofs << "<bgez> " << op1 << ", " << resOp << endl;
+		s = "<bgez> " + op1 + ", " + resOp;
 		break;
 	case MidType::ASSIGN:
-		*ofs << resOp << " = " << op1 << endl;
+		s = resOp + " = " + op1;
 		break;
 	case MidType::LARRAY_ASSIGN:
-		*ofs << resOp << "[" << op1 << "] = " << op2 << endl;
+		s = resOp + "[" + op1 + "] = " + op2;
 		break;
 	case MidType::RARRAY_ASSIGN:
-		*ofs << resOp << " = " << op1 << "[" << op2 << "]" << endl;
+		s = resOp + " = " + op1 + "[" + op2 + "]";
 		break;
 	case MidType::MINU:
-		*ofs << resOp << " = " << op1 << " - " << op2 << endl;
+		s = resOp + " = " + op1 + " - " + op2;
 		break;
 	case MidType::PLUS:
-		*ofs << resOp << " = " << op1 << " + " << op2 << endl;
+		s = resOp + " = " + op1 + " + " + op2;
 		break;
 	case MidType::MUL:
-		*ofs << resOp << " = " << op1 << " * " << op2 << endl;
+		s = resOp + " = " + op1 + " * " + op2;
 		break;
 	case MidType::DIV:
-		*ofs << resOp << " = " << op1 << " / " << op2 << endl;
+		s = resOp + " = " + op1 + " / " + op2;
 		break;
 	default:
-		*ofs << "!!!" << endl;
+		s = "!!!";
 		break;
 	}
+	return s;
 }

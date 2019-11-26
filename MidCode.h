@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <string>
 #include <iostream>
 #include <fstream>
@@ -46,6 +46,8 @@ public:
 	static std::string genTv();
 	static std::string genLb();
 	static std::vector<MidCode> getVec();
+	static void hold(std::vector<MidCode>* vec);
+	static void cancelHold();
 	MidCode(MidType type);
 	MidCode(MidType type, std::string resOp);
 	MidCode(MidType type, std::string op1, std::string op2);
@@ -54,6 +56,7 @@ public:
 	void setOp2(std::string op2);
 	void setResOp(std::string resOp);
 	void emit();
+	std::string toString();
 	MidType getType();
 	std::string getOp1();
 	std::string getOp2();
@@ -64,6 +67,7 @@ private:
 	static int lbCount;
 	static std::ofstream* ofs;
 	static std::vector<MidCode> vec;
+	static std::vector<MidCode>* holdVec;
 	MidType type;
 	std::string resOp;
 	std::string op1;

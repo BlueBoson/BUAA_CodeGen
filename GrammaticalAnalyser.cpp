@@ -1,4 +1,4 @@
-﻿#include "GrammaticalAnalyser.h"
+#include "GrammaticalAnalyser.h"
 
 const bool GrammaticalAnalyser::printEnter = false;
 const bool GrammaticalAnalyser::printQuit = true;
@@ -1069,16 +1069,32 @@ std::vector<ArgType> GrammaticalAnalyser::r_valueList() {
 	enterGrammar(GrammarType::VALUE_LIST);
 	std::vector<ArgType> args;
 	std::vector<MidCode> mids;
+	std::stack<std::vector<MidCode>> cal;
 	if (curType() != TkType::RPARENT) {
 		std::string symbol = MidCode::genTv();
+		std::vector<MidCode> vCal;
+		MidCode::hold(&vCal);
 		args.push_back(r_expression(symbol));
+		MidCode::cancelHold();
+		cal.push(vCal);
 		mids.push_back(MidCode(MidType::PUSH, symbol));
 		while (curType() == TkType::COMMA) {
 			nextTk();
 			symbol = MidCode::genTv();
+			std::vector<MidCode> vCal;
+			MidCode::hold(&vCal);
 			args.push_back(r_expression(symbol));
+			MidCode::cancelHold();
+			cal.push(vCal);
 			mids.push_back(MidCode(MidType::PUSH, symbol));
 		}
+	}
+	while (!cal.empty()) {
+		auto vCal = cal.top();
+		for (auto mid : vCal) {
+			mid.emit();
+		}
+		cal.pop();
 	}
 	for (auto mid : mids) {
 		mid.emit();

@@ -1,4 +1,4 @@
-﻿#include <iostream>
+#include <iostream>
 #include <fstream>
 #include "GrammaticalAnalyser.h"
 #include "MidCode.h"
@@ -8,7 +8,8 @@ constexpr auto SRC_FILE = "testfile.txt";
 constexpr auto OUTPUT_FILE = "output.txt";
 constexpr auto ERROR_FILE = "error.txt";
 constexpr auto LOG_FILE = "log.txt";
-constexpr auto MID_FILE = "midcode_raw.txt";
+constexpr auto MID_FILE = "17231066_LiRuikang_BeforOptim.txt";
+constexpr auto OPT_FILE = "17231066_LiRuikang_AfterOptim.txt";
 constexpr auto OBJ_FILE = "mips.txt";
 
 int main(int agrc, char* argv[]) {
@@ -38,6 +39,11 @@ int main(int agrc, char* argv[]) {
 		cout << "Cannot Open Midcode File " << MID_FILE << endl;
 		return 0;
 	}
+	ofstream ops(OPT_FILE, ios::out);
+	if (!ops) {
+		cout << "Cannot Open Optim File " << OPT_FILE << endl;
+		return 0;
+	}
 	ofstream mips(OBJ_FILE, ios::out);
 	if (!mips) {
 		cout << "Cannot Open Mips FIle" << OBJ_FILE << endl;
@@ -48,6 +54,9 @@ int main(int agrc, char* argv[]) {
 	SymbolTable table = SymbolTable::getInstance();
 	grammaticalAnalyser.analyse(mfs, table);
 	auto mids = MidCode::getVec();
+	for (auto mid : mids) {
+		ops << mid.toString() << endl;
+	}
 	MipsGen& genor = MipsGen::getInstance(mids, mips, table);
 	genor.gen();
 	SymbolTable::deleteInstance();
@@ -60,6 +69,7 @@ int main(int agrc, char* argv[]) {
 	efs.close();
 	lfs.close();
 	mfs.close();
+	ops.close();
 	mips.close();
 	return 0;
 }
