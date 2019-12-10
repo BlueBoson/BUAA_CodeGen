@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "MipsCode.h"
 #include "MidCode.h"
 #include "SymbolTable.h"
@@ -18,6 +18,7 @@ enum class RunVarType {
 	GLOBAL,
 	LOCAL,
 	TEMP,
+	INLINE,
 };
 
 struct RegInfo {
@@ -69,6 +70,7 @@ private:
 	int change(const std::string& varName);
 	void wb(const std::string& varName);
 	void deactive(const std::string& varName);
+	void clearIv();
 	void popTr();
 	void freshSr();
 	int allocSr();

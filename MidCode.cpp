@@ -2,6 +2,7 @@
 
 int MidCode::tvCount = 0;
 int MidCode::lbCount = 0;
+int MidCode::ivCount = 0;
 std::ofstream* MidCode::ofs = nullptr;
 std::vector<MidCode> MidCode::vec;
 std::vector<MidCode>* MidCode::holdVec = nullptr;
@@ -10,11 +11,16 @@ void MidCode::init(std::ofstream& _ofs) {
 	ofs = &_ofs;
 	tvCount = 0;
 	lbCount = 0;
+	ivCount = 0;
 	vec.clear();
 }
 
 std::string MidCode::genTv() {
 	return "$t" + std::to_string(tvCount++);
+}
+
+std::string MidCode::genIv() {
+	return "$i" + std::to_string(ivCount++);
 }
 
 std::string MidCode::genLb() {

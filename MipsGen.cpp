@@ -1,4 +1,4 @@
-﻿#include "MipsGen.h"
+#include "MipsGen.h"
 
 std::vector<RegInfo> regVec() {
 	std::vector<RegInfo> vec;
@@ -479,6 +479,7 @@ int MipsGen::use(const std::string& varName) {
 
 int MipsGen::change(const std::string& varName) {
 	if (varName == RET_TV) {
+		clearIv();
 		return R_V0;
 	}
 	if (varName == ZERO_TV) {
@@ -488,7 +489,11 @@ int MipsGen::change(const std::string& varName) {
 	if (vars.find(varName) == vars.end()) {
 		if (globals.find(varName) == globals.end()) {
 			reg = allocTr();
-			vars[varName] = { true, reg, 0, ArgType::INT, RunVarType::TEMP };
+			if (varName[1] == 't') {
+				vars[varName] = { true, reg, 0, ArgType::INT, RunVarType::TEMP };
+			} else {
+				vars[varName] = { true, reg, 0, ArgType::INT, RunVarType::INLINE };
+			}
 		} else {
 			reg = allocSr();
 			ArgType atype = (globals.find(varName)->second.type == IdenType::VAR_INT || globals.find(varName)->second.type == IdenType::CONST_INT) ?
@@ -511,7 +516,7 @@ int MipsGen::change(const std::string& varName) {
 				// load(reg, R_ZERO, GLOBAL_PREFIX + varName, info.atype);
 				info.inReg = true;
 				info.reg = reg;
-			} else if (info.type == RunVarType::TEMP) {
+			} else if (info.type == RunVarType::TEMP || info.type == RunVarType::INLINE) {
 				reg = allocTr();
 				// load(reg, R_SP, trDepth + srDepth - info.stackPos, info.atype);
 				info.inReg = true;
@@ -542,6 +547,17 @@ void MipsGen::deactive(const std::string& varName) {
 	int reg = vars.find(varName)->second.reg;
 	regs[reg].full = false;
 	vars.erase(varName);
+}
+
+void MipsGen::clearIv() {
+	for (int i = 0; i < sizeof(R_TS) / sizeof(R_TS[0]); ++i) {
+		if (regs[R_TS[i]].full) {
+			auto var = regs[R_TS[i]].var;
+			if (vars[var].type == RunVarType::INLINE) {
+				deactive(var);
+			}
+		}
+	}
 }
 
 void MipsGen::popTr() {
@@ -584,6 +600,10 @@ int MipsGen::allocTr() {
 		}
 	}
 	int reg = R_TS[trCount];
+	while (vars[regs[reg].var].type == RunVarType::INLINE) {
+		trCount = (trCount >= sizeof(R_TS) / sizeof(R_TS[0]) - 1) ? 0 : trCount + 1;
+		reg = R_TS[trCount];
+	}
 	regs[reg].full = false;
 	genCode(MipsCode::iOp(MipsType::SW, reg, R_SP, 0));
 	genCode(MipsCode::iOp(MipsType::ADDIU, R_SP, R_SP, -4));

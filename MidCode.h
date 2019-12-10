@@ -45,6 +45,7 @@ public:
 	static void init(std::ofstream& _ofs);
 	static std::string genTv();
 	static std::string genLb();
+	static std::string genIv();
 	static std::vector<MidCode> getVec();
 	static void hold(std::vector<MidCode>* vec);
 	static void cancelHold();
@@ -65,6 +66,7 @@ public:
 private:
 	static int tvCount;
 	static int lbCount;
+	static int ivCount;
 	static std::ofstream* ofs;
 	static std::vector<MidCode> vec;
 	static std::vector<MidCode>* holdVec;

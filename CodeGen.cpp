@@ -3,13 +3,18 @@
 #include "GrammaticalAnalyser.h"
 #include "MidCode.h"
 #include "MipsGen.h"
+#include "Optim.h"
 
 constexpr auto SRC_FILE = "testfile.txt";
 constexpr auto OUTPUT_FILE = "output.txt";
 constexpr auto ERROR_FILE = "error.txt";
 constexpr auto LOG_FILE = "log.txt";
-constexpr auto MID_FILE = "17231066_ÀîÈğ¿µ_ÓÅ»¯Ç°ÖĞ¼ä´úÂë.txt";
-constexpr auto OPT_FILE = "17231066_ÀîÈğ¿µ_ÓÅ»¯ºóÖĞ¼ä´úÂë.txt";
+/*
+constexpr auto MID_FILE = "17231066_æç‘åº·_ä¼˜åŒ–å‰ä¸­é—´ä»£ç .txt";
+constexpr auto OPT_FILE = "17231066_æç‘åº·_ä¼˜åŒ–åä¸­é—´ä»£ç .txt";
+*/
+constexpr auto MID_FILE = "17231066_LiRuikang_BeforeOptim.txt";
+constexpr auto OPT_FILE = "17231066_LiRuikang_AfterOptim.txt";
 constexpr auto OBJ_FILE = "mips.txt";
 
 int main(int agrc, char* argv[]) {
@@ -54,6 +59,10 @@ int main(int agrc, char* argv[]) {
 	SymbolTable table = SymbolTable::getInstance();
 	grammaticalAnalyser.analyse(mfs, table);
 	auto mids = MidCode::getVec();
+	Optim optimizer;
+	optimizer.feed(mids);
+	optimizer.func_inline();
+	mids = optimizer.result();
 	for (auto mid : mids) {
 		ops << mid.toString() << endl;
 	}
