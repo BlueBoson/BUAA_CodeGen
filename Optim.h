@@ -2,6 +2,7 @@
 #include <vector>
 #include <map>
 #include "MidCode.h"
+#include "symbols.h"
 
 class Optim {
 private:

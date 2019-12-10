@@ -52,10 +52,25 @@ void Optim::func_inline() {
 			string funcName = iter->getOp2();
 			auto func_begin = iter;
 			int ivNum = 0;
-			for (; iter->getType() != MidType::END_FUNC; ++iter) {
+			map<string, int> varSet;
+			for (iter = func_begin + 1; iter->getType() != MidType::END_FUNC; ++iter) {
 				if (iter->getType() == MidType::VAR || iter->getType() == MidType::PARAM || iter->getType() == MidType::CONST) {
+					varSet[iter->getResOp()] = 0;
 					++ivNum;
 					if (iter->getType() == MidType::VAR && !iter->getOp2().empty()) {
+						break;
+					}
+				} else {
+					string op = iter->getOp1();
+					if (!op.empty() && isLetter(op[0]) && varSet.find(op) == varSet.end()) {
+						break;
+					}
+					op = iter->getOp2();
+					if (!op.empty() && isLetter(op[0]) && varSet.find(op) == varSet.end()) {
+						break;
+					}
+					op = iter->getResOp();
+					if (!op.empty() && isLetter(op[0]) && varSet.find(op) == varSet.end()) {
 						break;
 					}
 				}
