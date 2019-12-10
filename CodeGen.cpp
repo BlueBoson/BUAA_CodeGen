@@ -8,8 +8,8 @@ constexpr auto SRC_FILE = "testfile.txt";
 constexpr auto OUTPUT_FILE = "output.txt";
 constexpr auto ERROR_FILE = "error.txt";
 constexpr auto LOG_FILE = "log.txt";
-constexpr auto MID_FILE = "17231066_LiRuikang_BeforOptim.txt";
-constexpr auto OPT_FILE = "17231066_LiRuikang_AfterOptim.txt";
+constexpr auto MID_FILE = "17231066_李瑞康_优化前中间代码.txt";
+constexpr auto OPT_FILE = "17231066_李瑞康_优化后中间代码.txt";
 constexpr auto OBJ_FILE = "mips.txt";
 
 int main(int agrc, char* argv[]) {
