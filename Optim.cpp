@@ -121,51 +121,55 @@ void Optim::func_inline() {
 			mids.push_back(*(iter++));
 		}
 	}
-	/*
-	auto iter = origin.begin();
-	while (iter != origin.end()) {
-		if (iter->getType() != MidType::FUNC || iter->getOp2() == "main") {
-			mids.push_back(*(iter++));
-			continue;
-		}
-		auto func_begin = iter;
-		int ivNum = 0;
-		for (; iter->getType() != MidType::END_FUNC; ++iter) {
-			if (iter->getType() == MidType::VAR || iter->getType() == MidType::PARAM || iter->getType() == MidType::CONST) {
-				++ivNum;
-				if (iter->getType() == MidType::VAR && !iter->getOp2().empty()) {
-					break;
-				}
-			}
-			if (iter->getType() == MidType::LABEL || iter->getType() == MidType::CALL) {
-				break;
-			}
-		}
-		if (ivNum > 4 || iter->getType() != MidType::END_FUNC) {
-			iter = func_begin;
-			mids.push_back(*(iter++));
-			continue;
-		}
-		map<string, string> ivMap;
-		for (iter = func_begin; iter->getType() != MidType::END_FUNC; ++iter) {
-			if (iter->getType() == MidType::VAR || iter->getType() == MidType::PARAM || iter->getType() == MidType::CONST) {
-				ivMap[iter->getResOp()] = MidCode::genIv();
-			} else {
-				auto code = *iter;
-				if (code.getType() != MidType::FUNC) {
-					if (ivMap.find(code.getOp1()) != ivMap.end()) {
-						code.setOp1(ivMap[code.getOp1()]);
-					}
-					if (ivMap.find(code.getOp2()) != ivMap.end()) {
-						code.setOp2(ivMap[code.getOp2()]);
-					}
-					if (ivMap.find(code.getResOp()) != ivMap.end()) {
-						code.setResOp(ivMap[code.getResOp()]);
-					}
-				}
-				mids.push_back()
-			}
-		}
+}
+
+bool canRep(MidCode& code) {
+	std::string res = code.getResOp();
+	std::string src = code.getOp1();
+	if (code.getType() == MidType::ASSIGN) {
+
 	}
-	*/
+	return code.getType() == MidType::ASSIGN && res.size() > 2 && res[0] == '$' && res[1] == 't' &&
+		src[0] != '+' && src[0] != '-' && !isDigit(src[0]) && src[0] != '\'';
+}
+
+void Optim::unused_tv() {
+	using namespace std;
+	if (!mids.empty()) {
+		origin = mids;
+		mids.clear();
+	}
+	vector<MidCode> reverse;
+	MidCode top(MidType::NONE);
+	for (auto riter = origin.rbegin(); riter != origin.rend(); ++riter) {
+		if (canRep(*riter) && !reverse.empty()) {
+			auto& top = reverse[reverse.size() - 1];
+			if (top.getType() == MidType::PUSH) {
+				if (top.getResOp() == riter->getResOp()) {
+					top.setResOp(riter->getOp1());
+					continue;
+				}
+			} else if (top.getType() == MidType::BEQ || top.getType() == MidType::BNE || top.getType() == MidType::BGEZ ||
+				top.getType() == MidType::BGTZ || top.getType() == MidType::BLEZ || top.getType() == MidType::BLTZ ||
+				top.getType() == MidType::MINU || top.getType() == MidType::PLUS || top.getType() == MidType::MUL || 
+				top.getType() == MidType::DIV || top.getType() == MidType::ASSIGN) {
+				bool skip = false;
+				if (top.getOp1() == riter->getResOp()) {
+					top.setOp1(riter->getOp1());
+					skip = true;
+				}
+				if (top.getOp2() == riter->getResOp()) {
+					top.setOp2(riter->getOp1());
+					skip = true;
+				}
+				if (skip) {
+					continue;
+				}
+			}
+		}
+		reverse.push_back(*riter);
+	}
+	for (auto riter = reverse.rbegin(); riter != reverse.rend(); ++riter) {
+		mids.push_back(*riter);
+	}
 }
