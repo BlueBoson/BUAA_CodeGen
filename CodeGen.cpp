@@ -58,6 +58,9 @@ int main(int agrc, char* argv[]) {
 	GrammaticalAnalyser& grammaticalAnalyser = GrammaticalAnalyser::getInstance(ifs, ofs);
 	SymbolTable table = SymbolTable::getInstance();
 	grammaticalAnalyser.analyse(mfs, table);
+	if (Error::hasError()) {
+		return 0;
+	}
 	auto mids = MidCode::getVec();
 	Optim optimizer;
 	optimizer.feed(mids);

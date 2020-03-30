@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <fstream>
 #include <iostream>
@@ -33,8 +33,10 @@ public:
 	static void cannotEndGrammar(Token& near, GrammarType grammar);
 	static void raiseError(Token& tk, ErrorType et);
 	static void raiseError(int row, ErrorType et);
+	static bool hasError();
 
 private:
+	static bool error;
 	static std::ofstream* ofs;
 	static std::ofstream* efs;
 	static std::map<ErrorType, std::string> errName;

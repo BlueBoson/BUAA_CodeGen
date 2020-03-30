@@ -3,6 +3,7 @@ Release/
 testfiles/
 submission/
 *.txt
+!文法.txt
 *.vcxproj*
 *.zip
 *.rar

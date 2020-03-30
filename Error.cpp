@@ -1,8 +1,9 @@
-﻿
+
 #include "Error.h"
 
 std::ofstream* Error::ofs = NULL;
 std::ofstream* Error::efs = NULL;
+bool Error::error = false;
 
 void Error::setLogFile(std::ofstream& _ofs) {
 	ofs = &_ofs;
@@ -13,6 +14,7 @@ void Error::cancelLogFile() {
 }
 
 void Error::setErrorFile(std::ofstream& _efs) {
+	error = false;
 	efs = &_efs;
 }
 
@@ -48,6 +50,7 @@ void Error::raiseError(Token& tk, ErrorType et) {
 }
 
 void Error::raiseError(int row, ErrorType et) {
+	error = true;
 	using namespace std;
 	string info = to_string(row) + " " + errName[et];
 	if (efs) {
@@ -78,6 +81,10 @@ std::map<ErrorType, std::string> getErrName() {
 	MAP(ILLEGAL_CONST_DEF, o);
 #undef MAP
 	return nameMap;
+}
+
+bool Error::hasError() {
+	return error;
 }
 
 std::map<ErrorType, std::string> Error::errName = getErrName();
